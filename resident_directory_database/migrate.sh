@@ -296,7 +296,36 @@ CREATE TABLE IF NOT EXISTS change_request_approval (
 ${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_cra_change_request_id ON change_request_approval(change_request_id);"
 ${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_cra_decided_by_user_id ON change_request_approval(decided_by_user_id);"
 
-# 6) Audit log
+# 6) In-app notifications (resident-scoped)
+# Used to surface approval/rejection events for resident change requests inside the UI.
+${PSQL} -c "
+CREATE TABLE IF NOT EXISTS app_notification (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Recipient is always a resident-linked user.
+  user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+
+  -- Notification category and payload metadata.
+  type text NOT NULL,
+  title text NOT NULL,
+  body text NOT NULL,
+
+  -- Optional correlation for deep linking/context in UI.
+  entity_type text,
+  entity_id uuid,
+
+  -- Status
+  is_read boolean NOT NULL DEFAULT false,
+  read_at timestamptz,
+
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_app_notification_user_created_at ON app_notification(user_id, created_at DESC);"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_app_notification_user_is_read ON app_notification(user_id, is_read, created_at DESC);"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_app_notification_entity ON app_notification(entity_type, entity_id);"
+
+# 6b) Audit log
 ${PSQL} -c "
 CREATE TABLE IF NOT EXISTS audit_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
