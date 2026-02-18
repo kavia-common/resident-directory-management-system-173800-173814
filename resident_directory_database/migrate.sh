@@ -117,6 +117,13 @@ CREATE TABLE IF NOT EXISTS resident (
   phone text,
   email citext,
 
+  -- Privacy controls (resident-managed)
+  -- directory_opt_out: if true, the resident should not appear in public directory results
+  directory_opt_out boolean NOT NULL DEFAULT false,
+  -- field-level visibility flags (true = visible in directory; false = hidden)
+  phone_visible boolean NOT NULL DEFAULT true,
+  email_visible boolean NOT NULL DEFAULT true,
+
   is_active boolean NOT NULL DEFAULT true,
 
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -169,6 +176,34 @@ END
 \$\$;
 "
 ${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_resident_full_name_trgm ON resident USING gin (full_name gin_trgm_ops);"
+
+# Privacy columns: add if missing (for existing DBs created before these fields existed)
+${PSQL} -c "
+DO \$\$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='resident' AND column_name='directory_opt_out'
+  ) THEN
+    ALTER TABLE resident ADD COLUMN directory_opt_out boolean NOT NULL DEFAULT false;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='resident' AND column_name='phone_visible'
+  ) THEN
+    ALTER TABLE resident ADD COLUMN phone_visible boolean NOT NULL DEFAULT true;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='resident' AND column_name='email_visible'
+  ) THEN
+    ALTER TABLE resident ADD COLUMN email_visible boolean NOT NULL DEFAULT true;
+  END IF;
+END
+\$\$;
+"
 
 # 5) Change requests + approvals
 ${PSQL} -c "
