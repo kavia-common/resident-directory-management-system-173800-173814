@@ -136,6 +136,19 @@ CREATE TABLE IF NOT EXISTS resident (
 );
 "
 
+# 4b) Resident favorites (per-user)
+# A user can favorite any resident in the directory (subject to authz checks in backend).
+${PSQL} -c "
+CREATE TABLE IF NOT EXISTS resident_favorite (
+  user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+  resident_id uuid NOT NULL REFERENCES resident(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, resident_id)
+);
+"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_resident_favorite_user_id_created_at ON resident_favorite(user_id, created_at DESC);"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_resident_favorite_resident_id ON resident_favorite(resident_id);"
+
 ${PSQL} -c "
 DO \$\$
 BEGIN
