@@ -325,7 +325,27 @@ ${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_app_notification_user_created_at ON a
 ${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_app_notification_user_is_read ON app_notification(user_id, is_read, created_at DESC);"
 ${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_app_notification_entity ON app_notification(entity_type, entity_id);"
 
-# 6b) Audit log
+# 6b) Password reset tokens
+# We store only a hash of the token (never the raw token) + an expiry.
+# The raw token is intended to be delivered out-of-band (email) but for this project
+# the backend can also return it when EMAIL_SENDING_ENABLED=false.
+${PSQL} -c "
+CREATE TABLE IF NOT EXISTS password_reset_token (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_password_reset_token_user_id_created_at ON password_reset_token(user_id, created_at DESC);"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_password_reset_token_expires_at ON password_reset_token(expires_at);"
+${PSQL} -c "CREATE INDEX IF NOT EXISTS idx_password_reset_token_used_at ON password_reset_token(used_at);"
+
+# 6c) Audit log
 ${PSQL} -c "
 CREATE TABLE IF NOT EXISTS audit_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
